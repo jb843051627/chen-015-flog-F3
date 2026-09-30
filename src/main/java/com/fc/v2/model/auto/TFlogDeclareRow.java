@@ -37,20 +37,81 @@ public class TFlogDeclareRow implements Serializable {
     @ApiModelProperty(value = "伐区申报清册批次号")
     private String batchNo;
 
-    /** 原清册行次 */
+    /** 进门行次（进门那一刻的顺序钉死，查挂起直写第几行） */
     @TableField("row_no")
-    @ApiModelProperty(value = "原清册行次")
+    @ApiModelProperty(value = "进门行次")
     private Integer rowNo;
+
+    /** 申报编制单位底档字号 */
+    @TableField("site_no")
+    @ApiModelProperty(value = "申报编制单位底档字号")
+    private String siteNo;
+
+    /** 小班号 */
+    @TableField("subcomp_no")
+    @ApiModelProperty(value = "小班号")
+    private String subcompNo;
+
+    /** 林种类别 1公益林 2商品林 */
+    @TableField("forest_kind")
+    @ApiModelProperty(value = "林种类别 1公益林 2商品林")
+    private Integer forestKind;
+
+    /** 采伐方式 1皆伐 2渐伐 3择伐 4抚育采伐 5更新采伐 6低质低效林改造 */
+    @TableField("cut_mode")
+    @ApiModelProperty(value = "采伐方式 1皆伐 2渐伐 3择伐 4抚育采伐 5更新采伐 6低质低效林改造")
+    private Integer cutMode;
+
+    /** 本行申报拟采蓄积(立方米) */
+    @TableField("qty")
+    @ApiModelProperty(value = "本行申报拟采蓄积(立方米)")
+    private BigDecimal qty;
+
+    /** 本行申报拟采面积(公顷) */
+    @TableField("fine_amt")
+    @ApiModelProperty(value = "本行申报拟采面积(公顷)")
+    private BigDecimal fineAmt;
+
+    /** 权属是否涉讼 0否 1是 */
+    @TableField("ownership_dispute")
+    @ApiModelProperty(value = "权属是否涉讼 0否 1是")
+    private Integer ownershipDispute;
+
+    /** 附没附伐区调查设计材料 0没附 1附了 */
+    @TableField("survey_attached")
+    @ApiModelProperty(value = "附没附伐区调查设计材料 0没附 1附了")
+    private Integer surveyAttached;
+
+    /** 实收蓄积(立方米，只许小于等于本行申报；挂起行为空) */
+    @TableField("received_qty")
+    @ApiModelProperty(value = "实收蓄积(立方米，只许小于等于本行申报)")
+    private BigDecimal receivedQty;
+
+    /** 并账前行次：非空表示本行目并进同号前行，账上不另立 */
+    @TableField("merged_row_no")
+    @ApiModelProperty(value = "并账前行次")
+    private Integer mergedRowNo;
 
     /** 被打回的前置项代号 */
     @TableField("item_code")
     @ApiModelProperty(value = "被打回的前置项代号")
     private String itemCode;
 
-    /** 本行申报拟采蓄积(立方米) */
-    @TableField("qty")
-    @ApiModelProperty(value = "本行申报拟采蓄积(立方米)")
-    private BigDecimal qty;
+    /** 挂起缘故（一句话，重送不追第二句） */
+    @TableField("hold_reason")
+    @ApiModelProperty(value = "挂起缘故（一句话）")
+    private String holdReason;
+
+    /** 账页 0现行页 1往期页 */
+    @TableField("ledger_status")
+    @ApiModelProperty(value = "账页 0现行页 1往期页")
+    private Integer ledgerStatus;
+
+    /** 转往期时刻 */
+    @TableField("archived_time")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    @ApiModelProperty(value = "转往期时刻")
+    private Date archivedTime;
 
     /** 行落地情形 0待核 1已收 2挂起 */
     @TableField("status")
@@ -113,12 +174,36 @@ public class TFlogDeclareRow implements Serializable {
         this.rowNo = rowNo;
     }
 
-    public String getItemCode() {
-        return itemCode;
+    public String getSiteNo() {
+        return siteNo;
     }
 
-    public void setItemCode(String itemCode) {
-        this.itemCode = itemCode;
+    public void setSiteNo(String siteNo) {
+        this.siteNo = siteNo;
+    }
+
+    public String getSubcompNo() {
+        return subcompNo;
+    }
+
+    public void setSubcompNo(String subcompNo) {
+        this.subcompNo = subcompNo;
+    }
+
+    public Integer getForestKind() {
+        return forestKind;
+    }
+
+    public void setForestKind(Integer forestKind) {
+        this.forestKind = forestKind;
+    }
+
+    public Integer getCutMode() {
+        return cutMode;
+    }
+
+    public void setCutMode(Integer cutMode) {
+        this.cutMode = cutMode;
     }
 
     public BigDecimal getQty() {
@@ -127,6 +212,78 @@ public class TFlogDeclareRow implements Serializable {
 
     public void setQty(BigDecimal qty) {
         this.qty = qty;
+    }
+
+    public BigDecimal getFineAmt() {
+        return fineAmt;
+    }
+
+    public void setFineAmt(BigDecimal fineAmt) {
+        this.fineAmt = fineAmt;
+    }
+
+    public Integer getOwnershipDispute() {
+        return ownershipDispute;
+    }
+
+    public void setOwnershipDispute(Integer ownershipDispute) {
+        this.ownershipDispute = ownershipDispute;
+    }
+
+    public Integer getSurveyAttached() {
+        return surveyAttached;
+    }
+
+    public void setSurveyAttached(Integer surveyAttached) {
+        this.surveyAttached = surveyAttached;
+    }
+
+    public BigDecimal getReceivedQty() {
+        return receivedQty;
+    }
+
+    public void setReceivedQty(BigDecimal receivedQty) {
+        this.receivedQty = receivedQty;
+    }
+
+    public Integer getMergedRowNo() {
+        return mergedRowNo;
+    }
+
+    public void setMergedRowNo(Integer mergedRowNo) {
+        this.mergedRowNo = mergedRowNo;
+    }
+
+    public String getItemCode() {
+        return itemCode;
+    }
+
+    public void setItemCode(String itemCode) {
+        this.itemCode = itemCode;
+    }
+
+    public String getHoldReason() {
+        return holdReason;
+    }
+
+    public void setHoldReason(String holdReason) {
+        this.holdReason = holdReason;
+    }
+
+    public Integer getLedgerStatus() {
+        return ledgerStatus;
+    }
+
+    public void setLedgerStatus(Integer ledgerStatus) {
+        this.ledgerStatus = ledgerStatus;
+    }
+
+    public Date getArchivedTime() {
+        return archivedTime;
+    }
+
+    public void setArchivedTime(Date archivedTime) {
+        this.archivedTime = archivedTime;
     }
 
     public Integer getStatus() {

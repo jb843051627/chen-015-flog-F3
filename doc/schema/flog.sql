@@ -56,12 +56,45 @@ CREATE TABLE IF NOT EXISTS t_flog_close_card (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区勾销事务卡';
 
+-- 清册批次账：一册一行。三数（原册总行数/已收/挂起）与整册处置只由业务层同一次逐行核收端出，不许界面另数。
+-- close 0核收中 1整册退回（越行数上限，一行不留） 2空册（回执只写空册，绝不写核讫） 3核讫。
+CREATE TABLE IF NOT EXISTS t_flog_declare_batch (
+  id bigint NOT NULL COMMENT '主键',
+  batch_no varchar(64) NOT NULL COMMENT '伐区申报清册批次号（一册一号，重送同号不另立）',
+  total_rows int NOT NULL DEFAULT 0 COMMENT '本册进门原册总行数（同册重复行目在进门行次里仍各占一行）',
+  accepted_rows int NOT NULL DEFAULT 0 COMMENT '收下行数（账上并作一行的重复行目只计一次）',
+  held_rows int NOT NULL DEFAULT 0 COMMENT '挂起行数',
+  status int NOT NULL DEFAULT 0 COMMENT '整册处置 0核收中 1整册退回 2空册 3核讫',
+  receipt_remark varchar(500) DEFAULT NULL COMMENT '回执结论（核讫/空册/整册退回，一句话）',
+  settled_time datetime DEFAULT NULL COMMENT '本册处置落定时刻',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_declare_batch_no (batch_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区申报清册批次账';
+
 CREATE TABLE IF NOT EXISTS t_flog_declare_row (
   id bigint NOT NULL COMMENT '主键',
-  batch_no varchar(64) DEFAULT NULL COMMENT '伐区申报清册批次号',
-  row_no int DEFAULT NULL COMMENT '原清册行次',
-  item_code varchar(64) DEFAULT NULL COMMENT '被打回的前置项代号',
+  batch_no varchar(64) DEFAULT NULL COMMENT '伐区申报清册批次号（各册各走各的行，不许串册）',
+  row_no int DEFAULT NULL COMMENT '进门行次（进门那一刻的顺序钉死，挂起查账直写第几行）',
+  site_no varchar(64) DEFAULT NULL COMMENT '申报编制单位底档字号（同一家以此字号为准认）',
+  subcomp_no varchar(64) DEFAULT NULL COMMENT '小班号（同单位同小班并一行的那一对之一）',
+  forest_kind int DEFAULT NULL COMMENT '林种类别 1公益林 2商品林',
+  cut_mode int DEFAULT NULL COMMENT '采伐方式 1皆伐 2渐伐 3择伐 4抚育采伐 5更新采伐 6低质低效林改造',
   qty decimal(12,2) DEFAULT NULL COMMENT '本行申报拟采蓄积(立方米)',
+  fine_amt decimal(12,2) DEFAULT NULL COMMENT '本行申报拟采面积(公顷)',
+  ownership_dispute int DEFAULT NULL COMMENT '权属是否涉讼 0否 1是（打着官司即挂起）',
+  survey_attached int DEFAULT NULL COMMENT '附没附伐区调查设计材料 0没附 1附了',
+  received_qty decimal(12,2) DEFAULT NULL COMMENT '实收蓄积(立方米，只许≤本行申报；挂起行为空)',
+  merged_row_no int DEFAULT NULL COMMENT '并账前行次：非空表示本行目并进同号前行，账上不另立',
+  item_code varchar(64) DEFAULT NULL COMMENT '被打回的前置项代号（P01公益林主伐/P02权属涉讼/P03超限未附调查材料）',
+  hold_reason varchar(500) DEFAULT NULL COMMENT '挂起缘故（一句话，重送不追第二句）',
+  ledger_status int DEFAULT NULL COMMENT '账页 0现行页 1往期页（收下行满两个执行期转往期）',
+  archived_time datetime DEFAULT NULL COMMENT '转往期时刻',
   status int DEFAULT NULL COMMENT '行落地情形 0待核 1已收 2挂起',
   del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
   create_by varchar(64) DEFAULT NULL COMMENT '创建者',
@@ -69,7 +102,10 @@ CREATE TABLE IF NOT EXISTS t_flog_declare_row (
   update_by varchar(64) DEFAULT NULL COMMENT '更新者',
   update_time datetime DEFAULT NULL COMMENT '更新时间',
   remark varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  KEY idx_declarerow_batch (batch_no, row_no),
+  KEY idx_declarerow_unit (site_no, subcomp_no),
+  KEY idx_declarerow_status (status, ledger_status, del_flag)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区申报清册核收行';
 
 CREATE TABLE IF NOT EXISTS t_flog_permit_bill (
