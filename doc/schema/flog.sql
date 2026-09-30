@@ -59,18 +59,80 @@ CREATE TABLE IF NOT EXISTS t_flog_close_card (
 CREATE TABLE IF NOT EXISTS t_flog_declare_row (
   id bigint NOT NULL COMMENT '主键',
   batch_no varchar(64) DEFAULT NULL COMMENT '伐区申报清册批次号',
-  row_no int DEFAULT NULL COMMENT '原清册行次',
+  row_no int DEFAULT NULL COMMENT '原清册行次（进门顺序钉死，不许挪册）',
+  site_no varchar(64) DEFAULT NULL COMMENT '申报编制单位底档字号',
+  subcomp_no varchar(64) DEFAULT NULL COMMENT '小班号',
+  cut_mode int DEFAULT NULL COMMENT '采伐方式 1皆伐 2渐伐 3择伐 4抚育采伐 5更新采伐 6低质低效林改造',
+  forest_kind int DEFAULT NULL COMMENT '林种性质 1公益林 2商品林',
+  dispute_flag int DEFAULT 0 COMMENT '权属是否在诉 0无 1有',
+  area decimal(12,2) DEFAULT NULL COMMENT '本行申报拟采面积(公顷)',
+  survey_flag int DEFAULT 0 COMMENT '附没附伐区调查设计材料 0未附 1已附',
   item_code varchar(64) DEFAULT NULL COMMENT '被打回的前置项代号',
   qty decimal(12,2) DEFAULT NULL COMMENT '本行申报拟采蓄积(立方米)',
+  recv_qty decimal(12,2) DEFAULT NULL COMMENT '本行实际核收蓄积(立方米，不得大过申报)',
+  period_year int DEFAULT NULL COMMENT '归属执行期年度（进门那年）',
+  page_flag int DEFAULT 0 COMMENT '账页 0现行页 1往期页（收满两个执行期转往期）',
+  merge_of_row_no int DEFAULT NULL COMMENT '重复行并账：本行并进的头行行次（头行本格为空）',
   status int DEFAULT NULL COMMENT '行落地情形 0待核 1已收 2挂起',
   del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
   create_by varchar(64) DEFAULT NULL COMMENT '创建者',
   create_time datetime DEFAULT NULL COMMENT '创建时间',
   update_by varchar(64) DEFAULT NULL COMMENT '更新者',
   update_time datetime DEFAULT NULL COMMENT '更新时间',
-  remark varchar(500) DEFAULT NULL COMMENT '备注',
-  PRIMARY KEY (id)
+  remark varchar(500) DEFAULT NULL COMMENT '备注（挂起缘故一句话落此）',
+  PRIMARY KEY (id),
+  KEY idx_declrow_batch_row (batch_no, row_no),
+  KEY idx_declrow_batch_site_sub (batch_no, site_no, subcomp_no),
+  KEY idx_declrow_page (page_flag, period_year),
+  KEY idx_declrow_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区申报清册核收行';
+
+-- 清册批次头：一册一行，回执三数（总行/已收/挂起）在收册同一回计算里落此，
+-- 界面不许另点；重送只认头一遍，整册退回/空册各有落法。
+CREATE TABLE IF NOT EXISTS t_flog_declare_batch (
+  id bigint NOT NULL COMMENT '主键',
+  batch_no varchar(64) NOT NULL COMMENT '伐区申报清册批次号',
+  site_no varchar(64) DEFAULT NULL COMMENT '申报编制单位底档字号',
+  period_year int DEFAULT NULL COMMENT '进门执行期年度',
+  total_rows int DEFAULT 0 COMMENT '本册总计行数（原册行次口径，重复行也占行次）',
+  accepted_rows int DEFAULT 0 COMMENT '收下几行（逐行落账同一回数出）',
+  suspended_rows int DEFAULT 0 COMMENT '挂起几行（逐行落账同一回数出）',
+  max_row_no int DEFAULT 0 COMMENT '已进门行次序（最后落定的行次，单行递入时续它）',
+  recv_status int DEFAULT 0 COMMENT '收册落法 0收册中 1核讫 2空册 3整册退回',
+  recv_time datetime DEFAULT NULL COMMENT '收册回执时刻',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_declbatch_no (batch_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区申报清册批次头与回执';
+
+-- 差异清单：同批次号重送不覆盖旧账，蓄积真要改走这一路；落账后改本行这两格。
+CREATE TABLE IF NOT EXISTS t_flog_declare_diff (
+  id bigint NOT NULL COMMENT '主键',
+  batch_no varchar(64) NOT NULL COMMENT '批次号',
+  site_no varchar(64) DEFAULT NULL COMMENT '编制单位底档字号',
+  subcomp_no varchar(64) DEFAULT NULL COMMENT '小班号',
+  row_no int DEFAULT NULL COMMENT '原清册行次',
+  diff_kind int DEFAULT 1 COMMENT '差异种类 1蓄积调整 2其它更正',
+  old_qty decimal(12,2) DEFAULT NULL COMMENT '原申报/原核收蓄积',
+  new_qty decimal(12,2) DEFAULT NULL COMMENT '申请改成的蓄积',
+  status int DEFAULT 0 COMMENT '办理情形 0待办 1已入帐 2驳回',
+  handle_by varchar(64) DEFAULT NULL COMMENT '办理人',
+  handle_time datetime DEFAULT NULL COMMENT '办理时刻',
+  del_flag int DEFAULT '0' COMMENT '删除标记 0正常 1删除',
+  create_by varchar(64) DEFAULT NULL COMMENT '创建者',
+  create_time datetime DEFAULT NULL COMMENT '创建时间',
+  update_by varchar(64) DEFAULT NULL COMMENT '更新者',
+  update_time datetime DEFAULT NULL COMMENT '更新时间',
+  remark varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (id),
+  KEY idx_decldiff_batch (batch_no),
+  KEY idx_decldiff_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='伐区申报清册差异清单';
 
 CREATE TABLE IF NOT EXISTS t_flog_permit_bill (
   id bigint NOT NULL COMMENT '主键',
@@ -240,7 +302,15 @@ VALUES
   (910000000000000008, '年度额度下达', '年初批本年可占', '/FlogQuotaController/view', 0, 0,
    'flog:flogQuota:view', 1, 'fa fa-balance-scale', 92, 0, 'seed', NOW()),
   (910000000000000009, '额度批数', '下达/改批年度总额', '/FlogQuotaController/issue', 0, 910000000000000008,
-   'flog:flogQuota:add', 2, '', 1, 0, 'seed', NOW());
+   'flog:flogQuota:add', 2, '', 1, 0, 'seed', NOW()),
+  (910000000000000010, '申报清册核收', '伐区申报清册逐行核收', '/FlogDeclareRowController/view', 0, 0,
+   'flog:flogDeclareRow:view', 1, 'fa fa-file-text-o', 93, 0, 'seed', NOW()),
+  (910000000000000011, '清册逐行查询', '现行页/挂起/往期', '/FlogDeclareRowController/list', 0, 910000000000000010,
+   'flog:flogDeclareRow:list', 2, '', 1, 0, 'seed', NOW()),
+  (910000000000000012, '清册收册递行', '整册提交/逐行递入/回执', '/FlogDeclareRowController/submit', 0, 910000000000000010,
+   'flog:flogDeclareRow:add', 2, '', 2, 0, 'seed', NOW()),
+  (910000000000000013, '往期结转与差异办理', '收满两期转往期/差异清单入账', '/FlogDeclareRowController/turn', 0, 910000000000000010,
+   'flog:flogDeclareRow:edit', 2, '', 3, 0, 'seed', NOW());
 
 -- 两角色都有的：建档卡查看/立卡/核对压死/删除(1..5)、底档册查看(6)。
 INSERT IGNORE INTO t_sys_permission_role (id, role_id, permission_id, create_by, create_time)
@@ -256,6 +326,10 @@ CROSS JOIN (
   UNION ALL SELECT 4, 910000000000000004
   UNION ALL SELECT 5, 910000000000000005
   UNION ALL SELECT 6, 910000000000000006
+  UNION ALL SELECT 10, 910000000000000010
+  UNION ALL SELECT 11, 910000000000000011
+  UNION ALL SELECT 12, 910000000000000012
+  UNION ALL SELECT 13, 910000000000000013
 ) p;
 
 -- 仅上级账号（管理员）：底档立户收回(7)、额度下达查看(8)、额度批数(9)。
